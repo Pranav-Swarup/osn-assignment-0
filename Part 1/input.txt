@@ -1,0 +1,4 @@
+INPUT
+hello world line one
+PRINT
+STOP

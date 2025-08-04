@@ -1,0 +1,6 @@
+Enter command:INPUT
+INPUT -> Enter command:PRINT
+hello world line one
+
+Enter command:STOP
+Exiting the shell.
