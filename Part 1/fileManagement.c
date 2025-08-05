@@ -116,14 +116,13 @@ void handle_first(int n, FILE *contentptr, FILE *logptr, char *msg){
 
 	rewind(contentptr);
 
-	int ch;
-	int line_count = 0;
+    int ch;
+    int line_count = 0;
 
-	while(!feof(contentptr) && line_count < n){
-		printf("%c", ch);
-
-		if(ch == '\n'){
-			line_count++;
+    while ((ch = fgetc(contentptr)) != EOF && line_count < n) {
+        putchar(ch);  // print to stdout
+        if (ch == '\n') {
+            line_count++;
         }
     }
 
