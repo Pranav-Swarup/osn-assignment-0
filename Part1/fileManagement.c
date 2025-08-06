@@ -22,7 +22,7 @@ struct CodeValue{
 };
 
 char contentpath[256], logpath[256];
-int original_stdout, original_stdin;
+int stdoutcopy, stdincopy;
 
 struct CodeValue get_command_info(char *str) {
 
@@ -67,286 +67,327 @@ struct CodeValue get_command_info(char *str) {
 void handle_input(){
 
 	char input[1024];
-	int content_fd, log_fd;
-	int saved_stdout = dup(STDOUT_FILENO);
+	int contentfiledesc, logfiledesc;
+	int stdinsaved = dup(STDIN_FILENO);
+	int stdoutsaved = dup(STDOUT_FILENO);
 
-	// Get input from user
-	dup2(original_stdout, STDOUT_FILENO);
+	// redirecting to user terminal for input
+	dup2(stdincopy, STDIN_FILENO);
+	dup2(stdoutcopy, STDOUT_FILENO);
 	printf("INPUT -> ");
 	fflush(stdout);
-	dup2(saved_stdout, STDOUT_FILENO);
-	
 	scanf("%[^\n]%*c", input);
 
-	// Write to content file
-	content_fd = open(contentpath, O_WRONLY | O_APPEND);
-	if(content_fd < 0){
+	// Writing user input to content file
+	contentfiledesc = open(contentpath, O_WRONLY | O_APPEND);
+	if(contentfiledesc < 0){
 		printf("File open failed");
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 	
-	dup2(content_fd, STDOUT_FILENO);
+	dup2(contentfiledesc, STDOUT_FILENO);
 	printf("%s\n", input);
 	fflush(stdout);
-	close(content_fd);
+	close(contentfiledesc);
 
-	// Write to log file
-	log_fd = open(logpath, O_WRONLY | O_APPEND);
-	if(log_fd < 0){
-		dup2(saved_stdout, STDOUT_FILENO);
+	logfiledesc = open(logpath, O_WRONLY | O_APPEND);
+	if(logfiledesc < 0){
+		dup2(stdinsaved, STDIN_FILENO);
+		dup2(stdoutsaved, STDOUT_FILENO);
 		printf("File open failed");
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 	
-	dup2(log_fd, STDOUT_FILENO);
+	dup2(logfiledesc, STDOUT_FILENO);
 	printf("INPUT\n");
 	fflush(stdout);
-	close(log_fd);
+	close(logfiledesc);
 	
-	dup2(saved_stdout, STDOUT_FILENO);
-	close(saved_stdout);
+	dup2(stdinsaved, STDIN_FILENO);
+	dup2(stdoutsaved, STDOUT_FILENO);
+	close(stdinsaved);
+	close(stdoutsaved);
 }
 
 void handle_print(){
 
-	int content_fd, log_fd;
-	int saved_stdin = dup(STDIN_FILENO);
-	int saved_stdout = dup(STDOUT_FILENO);
+	int contentfiledesc, logfiledesc;
+	int stdinsaved = dup(STDIN_FILENO);
+	int stdoutsaved = dup(STDOUT_FILENO);
 
-	// Read and print content file
-	content_fd = open(contentpath, O_RDONLY);
-	if(content_fd < 0){
+	contentfiledesc = open(contentpath, O_RDONLY);
+
+
+	if(contentfiledesc < 0){
 		printf("File open failed");
-		close(saved_stdin);
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 
-	dup2(content_fd, STDIN_FILENO);
-	dup2(original_stdout, STDOUT_FILENO);
+	dup2(contentfiledesc, STDIN_FILENO);
+	dup2(stdoutcopy, STDOUT_FILENO);
 	
 	char ch;
-	while(scanf("%c", &ch) == 1) {
+	int result;
+	while((result= scanf("%c", &ch))== 1) {
 		printf("%c", ch);
 	}
+	
+	/* I was facing an infinite loop after reading from file. So I use clearerr
+	to reset errors when doing read-and-write operations with the file.*/
+
+	if(result != 1) {
+		clearerr(stdin);
+	}
+	
 	printf("\n");
 	fflush(stdout);
-	close(content_fd);
+	close(contentfiledesc);
 
-	// Write to log file
-	log_fd = open(logpath, O_WRONLY | O_APPEND);
-	if(log_fd < 0){
-		dup2(saved_stdin, STDIN_FILENO);
-		dup2(saved_stdout, STDOUT_FILENO);
+	logfiledesc = open(logpath, O_WRONLY | O_APPEND);
+	if(logfiledesc < 0){
+		dup2(stdinsaved, STDIN_FILENO);
+		dup2(stdoutsaved, STDOUT_FILENO);
 		printf("File open failed");
-		close(saved_stdin);
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 	
-	dup2(log_fd, STDOUT_FILENO);
+	dup2(logfiledesc, STDOUT_FILENO);
 	printf("PRINT\n");
 	fflush(stdout);
-	close(log_fd);
+	close(logfiledesc);
 	
-	dup2(saved_stdin, STDIN_FILENO);
-	dup2(saved_stdout, STDOUT_FILENO);
-	close(saved_stdin);
-	close(saved_stdout);
+	dup2(stdinsaved, STDIN_FILENO);
+	dup2(stdoutsaved, STDOUT_FILENO);
+	close(stdinsaved);
+	close(stdoutsaved);
 }
 
 void handle_first(int n, char *msg){
 
-	int content_fd, log_fd;
-	int saved_stdin = dup(STDIN_FILENO);
-	int saved_stdout = dup(STDOUT_FILENO);
+	int contentfiledesc, logfiledesc;
+	int stdinsaved = dup(STDIN_FILENO);
+	int stdoutsaved = dup(STDOUT_FILENO);
 
-	content_fd = open(contentpath, O_RDONLY);
-	if(content_fd < 0){
+	contentfiledesc = open(contentpath, O_RDONLY);
+	if(contentfiledesc < 0){
 		printf("File open failed");
-		close(saved_stdin);
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 
-	dup2(content_fd, STDIN_FILENO);
-	dup2(original_stdout, STDOUT_FILENO);
+	dup2(contentfiledesc, STDIN_FILENO);
+	dup2(stdoutcopy, STDOUT_FILENO);
 
-    char ch;
-    int line_count = 0;
+	char ch;
+	int line_count = 0;
+	int result;
 
-    while (scanf("%c", &ch) == 1 && line_count < n) {
-        printf("%c", ch);
-        if (ch == '\n') {
-            line_count++;
-        }
-    }
+	while ((result = scanf("%c", &ch)) == 1 && line_count < n) {
+		printf("%c", ch);
+		if (ch == '\n') {
+			line_count++;
+		}
+	}
+	
+	if(result != 1) {
+		clearerr(stdin);
+	}
+	
 	fflush(stdout);
-	close(content_fd);
+	close(contentfiledesc);
 
-	// Write to log file
-	log_fd = open(logpath, O_WRONLY | O_APPEND);
-	if(log_fd < 0){
-		dup2(saved_stdin, STDIN_FILENO);
-		dup2(saved_stdout, STDOUT_FILENO);
+	logfiledesc = open(logpath, O_WRONLY | O_APPEND);
+	if(logfiledesc < 0){
+		dup2(stdinsaved, STDIN_FILENO);
+		dup2(stdoutsaved, STDOUT_FILENO);
 		printf("File open failed");
-		close(saved_stdin);
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 	
-	dup2(log_fd, STDOUT_FILENO);
+	dup2(logfiledesc, STDOUT_FILENO);
 	printf("%s\n", msg);
 	fflush(stdout);
-	close(log_fd);
+	close(logfiledesc);
 	
-	dup2(saved_stdin, STDIN_FILENO);
-	dup2(saved_stdout, STDOUT_FILENO);
-	close(saved_stdin);
-	close(saved_stdout);
+	dup2(stdinsaved, STDIN_FILENO);
+	dup2(stdoutsaved, STDOUT_FILENO);
+	close(stdinsaved);
+	close(stdoutsaved);
 }
 
 void handle_last(int n, char *msg){
 
-	int content_fd, log_fd;
-	int saved_stdin = dup(STDIN_FILENO);
-	int saved_stdout = dup(STDOUT_FILENO);
+	int contentfiledesc, logfiledesc;
+	int stdinsaved = dup(STDIN_FILENO);
+	int stdoutsaved = dup(STDOUT_FILENO);
 
-	// Count total lines by reading log file
-	log_fd = open(logpath, O_RDONLY);
-	if(log_fd < 0){
+	// READING NUMBER OF LINES IN CONTENT.TXT BY CHECKING LOGS FOR 'INPUT'
+
+	logfiledesc = open(logpath, O_RDONLY);
+	if(logfiledesc < 0){
 		printf("File open failed");
-		close(saved_stdin);
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 
-	dup2(log_fd, STDIN_FILENO);
+	dup2(logfiledesc, STDIN_FILENO);
 	char ch;
 	int line_count = 0;
+	int result;
 
-	while(scanf("%c", &ch) == 1){
+	while((result = scanf("%c", &ch)) == 1){
 		if(ch == 'I'){
 			line_count++;
-			// Skip rest of line
-			while(scanf("%c", &ch) == 1 && ch != '\n');
+			// skip rest of this line
+			while((result = scanf("%c", &ch)) == 1 && ch != '\n');
+			if(result != 1) break;
 		}
 		else{
-			// Skip rest of line
-			while(scanf("%c", &ch) == 1 && ch != '\n');
+			while((result = scanf("%c", &ch)) == 1 && ch != '\n');
+			if(result != 1) break;
 		}
 	}
-	close(log_fd);
+	
+	if(result != 1) {
+		clearerr(stdin);
+	}
+	
+	close(logfiledesc);
 
 	int skip = line_count - n;
 	if(skip < 0)
 		skip = 0;
 
-	// Read content file
-	content_fd = open(contentpath, O_RDONLY);
-	if(content_fd < 0){
-		dup2(saved_stdin, STDIN_FILENO);
-		dup2(saved_stdout, STDOUT_FILENO);
+	contentfiledesc = open(contentpath, O_RDONLY);
+	if(contentfiledesc < 0){
+		dup2(stdinsaved, STDIN_FILENO);
+		dup2(stdoutsaved, STDOUT_FILENO);
 		printf("File open failed");
-		close(saved_stdin);
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 
-	dup2(content_fd, STDIN_FILENO);
-	dup2(original_stdout, STDOUT_FILENO);
+	dup2(contentfiledesc, STDIN_FILENO);
+	dup2(stdoutcopy, STDOUT_FILENO);
 	int currentline = 0;
 
-	while(scanf("%c", &ch) == 1){
+	while((result = scanf("%c", &ch)) == 1){
 		if(currentline >= skip)
 			printf("%c", ch);
 		if(ch == '\n')
 			currentline++;
 	}
+	
+	if(result != 1) {
+		clearerr(stdin);
+	}
+	
 	fflush(stdout);
-	close(content_fd);
+	close(contentfiledesc);
 
-	// Write to log file
-	log_fd = open(logpath, O_WRONLY | O_APPEND);
-	if(log_fd < 0){
-		dup2(saved_stdin, STDIN_FILENO);
-		dup2(saved_stdout, STDOUT_FILENO);
+	// WRITE 'LAST N' INTO LOG.TXT
+
+	logfiledesc = open(logpath, O_WRONLY | O_APPEND);
+	if(logfiledesc < 0){
+		dup2(stdinsaved, STDIN_FILENO);
+		dup2(stdoutsaved, STDOUT_FILENO);
 		printf("File open failed");
-		close(saved_stdin);
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 	
-	dup2(log_fd, STDOUT_FILENO);
+	dup2(logfiledesc, STDOUT_FILENO);
 	printf("%s\n", msg);
 	fflush(stdout);
-	close(log_fd);
+	close(logfiledesc);
 	
-	dup2(saved_stdin, STDIN_FILENO);
-	dup2(saved_stdout, STDOUT_FILENO);
-	close(saved_stdin);
-	close(saved_stdout);
+	dup2(stdinsaved, STDIN_FILENO);
+	dup2(stdoutsaved, STDOUT_FILENO);
+	close(stdinsaved);
+	close(stdoutsaved);
 }
 
 void handle_log(int n){
 
-	int log_fd;
-	int saved_stdin = dup(STDIN_FILENO);
-	int saved_stdout = dup(STDOUT_FILENO);
+	int logfiledesc;
+	int stdinsaved = dup(STDIN_FILENO);
+	int stdoutsaved = dup(STDOUT_FILENO);
 
-	log_fd = open(logpath, O_RDONLY);
-	if(log_fd < 0){
+	logfiledesc = open(logpath, O_RDONLY);
+	if(logfiledesc < 0){
 		printf("Log.txt open failed");
-		close(saved_stdin);
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 
-	// Count total lines first
-	dup2(log_fd, STDIN_FILENO);
+	dup2(logfiledesc, STDIN_FILENO);
 	char ch;
 	int line_count = 0;
+	int result;
 
-	while(scanf("%c", &ch) == 1) {
+	while((result = scanf("%c", &ch)) == 1) {
 		if(ch == '\n')
 			line_count++;
 	}
-	close(log_fd);
+	
+	if(result != 1) {
+		clearerr(stdin);
+	}
+	
+	close(logfiledesc);
 
 	int skip = line_count - n;
 	if(skip < 0)
 		skip = 0;
 
-	// Reopen and read from skip point
-	log_fd = open(logpath, O_RDONLY);
-	if(log_fd < 0){
-		dup2(saved_stdin, STDIN_FILENO);
-		dup2(saved_stdout, STDOUT_FILENO);
+	// reopen file for second pass
+	logfiledesc = open(logpath, O_RDONLY);
+	if(logfiledesc < 0){
+		dup2(stdinsaved, STDIN_FILENO);
+		dup2(stdoutsaved, STDOUT_FILENO);
 		printf("Log.txt open failed");
-		close(saved_stdin);
-		close(saved_stdout);
+		close(stdinsaved);
+		close(stdoutsaved);
 		return;
 	}
 
-	dup2(log_fd, STDIN_FILENO);
-	dup2(original_stdout, STDOUT_FILENO);
+	dup2(logfiledesc, STDIN_FILENO);
+	dup2(stdoutcopy, STDOUT_FILENO);
 	int currentline = 0;
 
-	while(scanf("%c", &ch) == 1){
+	while((result = scanf("%c", &ch)) == 1){
 		if(currentline >= skip)
 			printf("%c", ch);
 		if(ch == '\n')
 			currentline++;
 	}
-	fflush(stdout);
-	close(log_fd);
 	
-	dup2(saved_stdin, STDIN_FILENO);
-	dup2(saved_stdout, STDOUT_FILENO);
-	close(saved_stdin);
-	close(saved_stdout);
+	if(result != 1) {
+		clearerr(stdin);
+	}
+	
+	fflush(stdout);
+	close(logfiledesc);
+	
+	dup2(stdinsaved, STDIN_FILENO);
+	dup2(stdoutsaved, STDOUT_FILENO);
+	close(stdinsaved);
+	close(stdoutsaved);
 }
 
 
@@ -356,13 +397,12 @@ int main(){
 	setvbuf(stdin, NULL, _IONBF,0);
 
 	/* I am running this on WSL (Sublime Editor)
-	This runtime environemnt caused my output buffer to not be flushed before a fork. 
-	So I found a fix - disabling buffering entirely.
-	Now the child processes don't inherit their parent's output buffer. */
+	This runtime environemnt caused my output and input buffer 
+	to not be flushed before a fork. So I found a fix - disabling buffering entirely.
+	Now the child processes don't inherit their parent's output/input buffer. */
 
-	// Save original stdin/stdout for user interaction
-	original_stdout = dup(STDOUT_FILENO);
-	original_stdin = dup(STDIN_FILENO);
+	stdoutcopy = dup(STDOUT_FILENO);
+	stdincopy = dup(STDIN_FILENO);
 
 	pid_t pid = getpid();
 
@@ -372,7 +412,7 @@ int main(){
 	snprintf(foldername, sizeof(foldername), "folder_%d", (int)pid);
 
 	if(mkdir(foldername, 0755)!=0){
-		// 0755 is the permissions for rwx for owner, group and others.
+		
 		printf("mkdir failed");
 		return 1;
 	}
@@ -382,16 +422,16 @@ int main(){
 	snprintf(contentpath, sizeof(contentpath), "%s/content.txt", foldername);
 	snprintf(logpath, sizeof(logpath), "%s/logs.txt", foldername);
 
-	int content_fd = open(contentpath, O_CREAT | O_WRONLY | O_APPEND, 0644);
-	int log_fd = open(logpath, O_CREAT | O_WRONLY | O_APPEND, 0644);
+	int contentfiledesc = open(contentpath, O_CREAT | O_WRONLY | O_APPEND, 0644);
+	int logfiledesc = open(logpath, O_CREAT | O_WRONLY | O_APPEND, 0644);
 	
-	if(content_fd < 0 || log_fd < 0){
+	if(contentfiledesc < 0 || logfiledesc < 0){
 		printf("File creation failed");
 		return 1;
 	}
 	
-	close(content_fd);
-	close(log_fd);
+	close(contentfiledesc);
+	close(logfiledesc);
 
 	// INPUT LOOP
 
@@ -400,15 +440,17 @@ int main(){
 	while(1){
 
 		printf("Enter command:");
+		fflush(stdout);
 		scanf("%[^\n]%*c", input);
 		printf("%s\n", input);
+		fflush(stdout);
 		struct CodeValue temp = get_command_info(input);
 
 		//printf("CODE: %d N VALUE: %d\n", temp.code, temp.n);
 
 		if(temp.code==6){
-			close(original_stdout);
-			close(original_stdin);
+			close(stdoutcopy);
+			close(stdincopy);
 			return 0;
 		}
 		else if(temp.code==-1){
