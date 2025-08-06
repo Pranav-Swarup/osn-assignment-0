@@ -1,2 +1,0 @@
-hello world line one
-hello world line two

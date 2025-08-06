@@ -1,0 +1,9 @@
+INPUT
+hello world line one
+INPUT
+hello world line two
+PRINT
+FIRST 1
+LAST 1
+LOG 4
+STOP

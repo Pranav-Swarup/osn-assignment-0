@@ -1,0 +1,12 @@
+______TASK 1 (Child)_______
+Child's PID = 586, Updated x value = 35
+______TASK 1 (Parent)_______
+Parent's PID = 585, Updated x value = 20
+______TASK 2 (Child)_______
+Writing to newfile.txt
+______TASK 2 (Parent)_______
+Waiting for child to finish
+______TASK 3 (Parent)_______
+Parent with PID 585, is exiting.
+______TASK 3 (Child)_______
+Child PID 588, Updated Parent PID: 266
